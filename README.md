@@ -1,8 +1,7 @@
-## 사용 방법
+# 사용 방법
 
 ### 요구사항
 - LLVM/Clang 설치 완료 (`llvm-config`, `clang`, `opt` 사용 가능)
-- macOS 기준 산출물은 `libReusePass.dylib` (Linux는 `ReusePass.so`)
 
 ---
 
@@ -52,7 +51,7 @@ opt -passes='mem2reg,instcombine,simplifycfg,loop-simplify,indvars,sroa' \
 ```bash
 opt -load-pass-plugin "$(pwd)/libReusePass.dylib" \
     -passes='function(reuse-pass)' \
-    "$IR_LL" -disable-output
+    test.ll -disable-output
 ```
 
 - 전처리된 IR로 실행:
