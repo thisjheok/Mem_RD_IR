@@ -1,0 +1,13 @@
+build/
+.git/
+.gitignore
+*.dylib
+*.so
+*.o
+*.a
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+.vscode/
+.idea/

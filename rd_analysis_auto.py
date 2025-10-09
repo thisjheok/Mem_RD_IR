@@ -7,9 +7,25 @@ from pathlib import Path
 from collections import defaultdict
 
 class RDAnalyzer:
-    def __init__(self, llvm_build_dir="/Users/jangjaehyeok/Desktop/LLVM/build"):
-        self.build_dir = Path(llvm_build_dir)
-        self.plugin_path = self.build_dir / "libReusePass.dylib"
+    def __init__(self, llvm_build_dir=None):
+        if llvm_build_dir is None:
+            # 스크립트 위치 기준으로 build 디렉토리 경로 설정
+            script_dir = Path(__file__).parent
+            self.build_dir = script_dir / "build"
+        else:
+            self.build_dir = Path(llvm_build_dir)
+        
+        # 절대 경로로 변환
+        self.build_dir = self.build_dir.resolve()
+        
+        # OS에 따라 라이브러리 확장자 자동 선택
+        import platform
+        if platform.system() == 'Darwin':  # macOS
+            plugin_name = "libReusePass.dylib"
+        else:  # Linux 등
+            plugin_name = "libReusePass.so"
+        
+        self.plugin_path = self.build_dir / plugin_name
         
     def c_to_ir(self, c_file):
         """C 파일을 LLVM IR로 변환"""
@@ -33,30 +49,47 @@ class RDAnalyzer:
         return result.stderr  # RD 정보는 stderr로 출력됨
     
     def parse_rd_output(self, output):
-        """RD 출력 파싱하여 메모리 주소별로 그룹화"""
-        rd_data = defaultdict(list)
+        """RD 출력 파싱하여 함수별, 메모리 주소별로 그룹화"""
+        rd_data = defaultdict(lambda: defaultdict(list))
         
         for line in output.strip().split('\n'):
-            if 'RD(mem-accesses)=' in line:
-                # 정규식으로 파싱
-                match = re.search(r'RD\(mem-accesses\)=(\d+).*base=([^\s]+).*off=(\d+)', line)
-                if match:
-                    original_rd = int(match.group(1))
-                    adjusted_rd = original_rd + 1  # RD 값을 1씩 증가
-                    base = match.group(2)
-                    offset = int(match.group(3))
-                    key = f"{base}+{offset}"
-                    rd_data[key].append(adjusted_rd)
+            if 'RD(mem-accesses)=' in line or 'Branch-Avg-RD=' in line:
+                # 함수명 추출
+                func_match = re.match(r'(\w+):', line)
+                func_name = func_match.group(1) if func_match else "unknown"
+                
+                if 'RD(mem-accesses)=' in line:
+                    # 일반 RD 파싱
+                    match = re.search(r'RD\(mem-accesses\)=(\d+).*base=([^\s]+).*off=(\d+)', line)
+                    if match:
+                        original_rd = int(match.group(1))
+                        adjusted_rd = original_rd + 1
+                        base = match.group(2)
+                        offset = int(match.group(3))
+                        key = f"{base}+{offset}"
+                        rd_data[func_name][key].append(adjusted_rd)
+                elif 'Branch-Avg-RD=' in line:
+                    # 분기 평균 RD도 파싱 (선택적)
+                    match = re.search(r'Branch-Avg-RD=([\d.]+).*base=([^\s]+).*off=(\d+)', line)
+                    if match:
+                        avg_rd = float(match.group(1))
+                        base = match.group(2)
+                        offset = int(match.group(3))
+                        key = f"{base}+{offset}"
+                        # 분기 평균도 RD 데이터에 포함
+                        rd_data[func_name][key].append(int(avg_rd))  # 정수로 변환하거나 float 그대로
         
         return rd_data
     
     def calculate_averages(self, rd_data):
-        """메모리 주소별 RD 평균 계산"""
+        """함수별, 메모리 주소별 RD 평균 계산"""
         averages = {}
-        for addr, rd_values in rd_data.items():
-            if rd_values:
-                avg = sum(rd_values) / len(rd_values)
-                averages[addr] = round(avg, 2)  # 소수점 2번째 자리까지 반올림
+        for func_name, addr_data in rd_data.items():
+            averages[func_name] = {}
+            for addr, rd_values in addr_data.items():
+                if rd_values:
+                    avg = sum(rd_values) / len(rd_values)
+                    averages[func_name][addr] = round(avg, 2)
         return averages
     
     def analyze_file(self, c_file):
@@ -82,8 +115,8 @@ class RDAnalyzer:
         
         return {
             'file': str(c_file),
-            'raw_data': rd_data,
-            'averages': averages
+            'functions': rd_data,  # 함수별로 구조화
+            'averages': averages   # 함수별 평균
         }
     
     def batch_analyze(self, c_files):

@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <vector>  // ★ 추가
 #include <set> // ★ 추가
+#include "llvm/Support/Format.h"
 
 using namespace llvm;
 
@@ -277,7 +278,7 @@ struct ReusePass : public PassInfoMixin<ReusePass> {
                 } else {
                   errs() << F.getName() << ":<ir>";
                 }
-                errs() << "  Branch-Avg-RD=" << AvgRD
+                errs() << "  Branch-Avg-RD=" << format("%.2f", AvgRD)  
                        << "  base=" << Key.Base
                        << "  off=" << Key.Offset
                        << "  num_branches=" << RDs.size()
