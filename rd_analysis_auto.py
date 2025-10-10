@@ -63,7 +63,7 @@ class RDAnalyzer:
                     match = re.search(r'RD\(mem-accesses\)=(\d+).*base=([^\s]+).*off=(\d+)', line)
                     if match:
                         original_rd = int(match.group(1))
-                        adjusted_rd = original_rd + 1
+                        adjusted_rd = original_rd
                         base = match.group(2)
                         offset = int(match.group(3))
                         key = f"{base}+{offset}"
@@ -92,6 +92,36 @@ class RDAnalyzer:
                     averages[func_name][addr] = round(avg, 2)
         return averages
     
+    def calculate_cachefriendly_score(self, rd_data, averages):
+        """Cache Friendly Score 계산"""
+        cachefriendly_scores = {}
+        
+        for func_name, addr_data in rd_data.items():
+            numerator = 0
+            denominator = 0
+            
+            for addr, rd_values in addr_data.items():
+                # N(x_i): 접근 횟수
+                N_xi = len(rd_values)
+                
+                # δavg(x_i): 평균 RD (이미 계산된 값 사용)
+                delta_avg_xi = averages[func_name][addr]
+                
+                # 분자: Σ_i (N(x_i) - 1)
+                numerator += (N_xi - 1)
+                
+                # 분모: Σ_i (δavg(x_i) * (N(x_i) - 1))
+                denominator += delta_avg_xi * (N_xi - 1)
+            
+            # Score_cachefriendly 계산
+            if denominator > 0:
+                score = numerator / denominator
+                cachefriendly_scores[func_name] = round(score, 6)
+            else:
+                cachefriendly_scores[func_name] = 0.0
+        
+        return cachefriendly_scores
+    
     def analyze_file(self, c_file):
         """단일 C 파일 전체 분석"""
         print(f"분석 중: {c_file}")
@@ -113,10 +143,15 @@ class RDAnalyzer:
         averages = self.calculate_averages(rd_data)
         print(f"계산된 평균: {averages}")
         
+        # 5. Cache Friendly Score 계산
+        cachefriendly_scores = self.calculate_cachefriendly_score(rd_data, averages)
+        print(f"계산된 Cache Friendly Scores: {cachefriendly_scores}")
+        
         return {
             'file': str(c_file),
             'functions': rd_data,  # 함수별로 구조화
-            'averages': averages   # 함수별 평균
+            'averages': averages,   # 함수별 평균
+            'cachefriendly_scores': cachefriendly_scores  # 함수별 Cache Friendly Score
         }
     
     def batch_analyze(self, c_files):
