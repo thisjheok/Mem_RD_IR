@@ -221,7 +221,7 @@ Boolean Func_3(Enumeration Enum_Par_Val) {
         return (false);
 }
 
-static void run_dhrystone_workload(test_task_context *ctx) {
+void run_dhrystone_workload(test_task_context *ctx) {
     One_Fifty Int_1_Loc;
     One_Fifty Int_2_Loc;
     One_Fifty Int_3_Loc;
