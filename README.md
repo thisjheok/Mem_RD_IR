@@ -23,13 +23,20 @@ docker build -t llvm-reuse-pass:latest .
 ### 2. 분석할 C 코드 준비
 `tasks` 디렉토리에 분석할 C 파일(`.c`)을 배치하세요.
 
-### 3. Docker 컨테이너 실행
+### 3. Docker 컨테이너 실행 및 분석
 ```bash
 docker run -it --rm \
-  -v $(pwd)/tasks:/app/tasks \
-  llvm-reuse-pass:latest
-```
+  -v $(pwd):/app \
+  llvm-reuse bash
 
-```bash
+# 컨테이너 안에서 재빌드 (경로 문제 해결)
+cd /app
+rm -rf build
+mkdir build && cd build
+cmake ..
+make
+cd ..
+
+# 분석 실행
 python3 rd_analysis_auto.py
 ```

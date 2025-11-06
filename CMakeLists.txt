@@ -24,10 +24,10 @@ set_target_properties(ReusePass PROPERTIES
 
 # 플랫폼별 설정
 if(APPLE)
-  # macOS: RPATH 설정 및 심볼 export
+  # macOS: undefined symbols 허용 (opt가 제공)
   set_target_properties(ReusePass PROPERTIES
     MACOSX_RPATH ON
-    LINK_FLAGS "-Wl,-exported_symbol,_llvmGetPassPluginInfo"
+    LINK_FLAGS "-undefined dynamic_lookup"
   )
 else()
   # Linux: undefined symbols 허용 (opt가 제공)
